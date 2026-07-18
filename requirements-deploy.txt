@@ -1,0 +1,5 @@
+# Dependency Python untuk INFERENSI di produksi (model_web/ai_predict.py).
+# Versi di-pin agar cocok dengan versi saat model dilatih (kompatibilitas pickle).
+numpy==2.5.1
+scipy==1.18.0
+scikit-learn==1.9.0

@@ -1,0 +1,83 @@
+import sys
+import json
+import pickle
+import pandas as pd
+import numpy as np
+import warnings
+import os
+
+# Get absolute path of the directory containing this script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Suppress inconsistent version warnings from sklearn/pickle
+warnings.filterwarnings("ignore", category=UserWarning)
+
+def get_path(relative_path):
+    return os.path.join(BASE_DIR, relative_path)
+
+def main():
+    try:
+        # Read JSON from stdin
+        input_json = sys.stdin.read()
+        if not input_json:
+            print(json.dumps({"status": "error", "message": "No input data provided"}))
+            return
+
+        input_data = json.loads(input_json)
+
+        # Load metadata
+        metadata_path = get_path('model_export/metadata.json')
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+        
+        feature_names = metadata['feature_names']
+        categories = metadata['categories']
+
+        # Load model and scaler
+        model_path = get_path('model_export/xgboost_model.pkl')
+        scaler_path = get_path('model_export/scaler.pkl')
+
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        
+        with open(scaler_path, 'rb') as f:
+            scaler = pickle.load(f)
+
+        # Prepare feature vector in correct order
+        features = []
+        for feat in feature_names:
+            val = input_data.get(feat, 0)
+            if val is None: val = 0
+            features.append(float(val))
+        
+        # Convert to DataFrame for scaler
+        df_input = pd.DataFrame([features], columns=feature_names)
+        
+        # Scale features
+        X_scaled = scaler.transform(df_input)
+        
+        # Predict
+        prediction_idx = int(model.predict(X_scaled)[0])
+        probabilities = model.predict_proba(X_scaled)[0].tolist()
+        
+        # Map back to category name
+        prediction_label = categories[prediction_idx]
+        
+        # Prepare prob map
+        prob_map = {categories[i]: probabilities[i] for i in range(len(categories))}
+
+        # Return result
+        print(json.dumps({
+            "status": "success",
+            "prediction": prediction_label,
+            "probabilities": prob_map
+        }))
+
+    except Exception as e:
+        print(json.dumps({
+            "status": "error",
+            "message": str(e)
+        }))
+
+if __name__ == "__main__":
+    main()

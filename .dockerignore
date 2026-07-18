@@ -1,0 +1,19 @@
+.git
+.gitignore
+venv/
+node_modules/
+vendor/
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+database/*.sqlite
+model_web/_backup_ensemble/
+archive/
+.env
+.env.example
+tests/
+*.ipynb
+dataset_aslam_clinical (1).csv
+disease-prediction-using-machine-learning/

@@ -1,0 +1,10 @@
+# Python dependencies for StomaCare AI (Mixed Naive Bayes)
+# Inference (dipakai model_web/ai_predict.py): numpy, scipy, scikit-learn
+# Training (train_clinical_nb.py): + pandas, xgboost, matplotlib
+numpy
+scipy
+scikit-learn
+pandas
+xgboost
+joblib
+matplotlib

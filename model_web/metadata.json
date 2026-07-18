@@ -1,0 +1,159 @@
+{
+  "version": "v3-clinical-tier1",
+  "model": "Mixed Naive Bayes (GaussianNB kontinu + CategoricalNB diskret)",
+  "task": "Klasifikasi Multiclass Tingkat Keparahan GERD",
+  "dataset": "dataset_aslam_clinical (1).csv (12000 baris, sintetis)",
+  "classes": [
+    "GERD Berat",
+    "GERD Ringan",
+    "GERD Sedang",
+    "Komplikasi",
+    "Normal"
+  ],
+  "severity_order": [
+    "Normal",
+    "GERD Ringan",
+    "GERD Sedang",
+    "GERD Berat",
+    "Komplikasi"
+  ],
+  "continuous_features": [
+    "Usia",
+    "BMI"
+  ],
+  "categorical_features": [
+    "Heartburn",
+    "Regurgitasi",
+    "Merokok",
+    "Alkohol",
+    "Waktu_Makan_Tidur",
+    "NSAID",
+    "Stres",
+    "Riwayat_Keluarga",
+    "Kafein",
+    "Makanan_Pedas",
+    "Makanan_Berlemak",
+    "Posisi_Tidur",
+    "Batuk_Kronis",
+    "Jenis_Kelamin",
+    "Aktivitas_Fisik",
+    "Minuman_Soda",
+    "Kualitas_Tidur"
+  ],
+  "feature_order": [
+    "Usia",
+    "BMI",
+    "Heartburn",
+    "Regurgitasi",
+    "Merokok",
+    "Alkohol",
+    "Waktu_Makan_Tidur",
+    "NSAID",
+    "Stres",
+    "Riwayat_Keluarga",
+    "Kafein",
+    "Makanan_Pedas",
+    "Makanan_Berlemak",
+    "Posisi_Tidur",
+    "Batuk_Kronis",
+    "Jenis_Kelamin",
+    "Aktivitas_Fisik",
+    "Minuman_Soda",
+    "Kualitas_Tidur"
+  ],
+  "min_categories": {
+    "Heartburn": 4,
+    "Regurgitasi": 4,
+    "Merokok": 4,
+    "Alkohol": 4,
+    "Waktu_Makan_Tidur": 4,
+    "NSAID": 4,
+    "Stres": 4,
+    "Riwayat_Keluarga": 2,
+    "Kafein": 4,
+    "Makanan_Pedas": 4,
+    "Makanan_Berlemak": 4,
+    "Posisi_Tidur": 3,
+    "Batuk_Kronis": 2,
+    "Jenis_Kelamin": 2,
+    "Aktivitas_Fisik": 4,
+    "Minuman_Soda": 4,
+    "Kualitas_Tidur": 4
+  },
+  "class_log_prior": [
+    -1.6094379124341003,
+    -1.6094379124341003,
+    -1.6094379124341003,
+    -1.6094379124341003,
+    -1.6094379124341003
+  ],
+  "var_smoothing": 1e-09,
+  "cat_alpha": 0.1,
+  "confidence_threshold": 0.45,
+  "feature_encoding": {
+    "Usia": "integer tahun (18-75)",
+    "BMI": "float; = berat_kg / (tinggi_m^2)",
+    "ordinal_0_3": "0=Tidak pernah/Rendah, 1=Kadang/Ringan, 2=Sering/Sedang, 3=Selalu/Tinggi",
+    "Stres": "0..3 (Rendah..Sangat tinggi)",
+    "Jenis_Kelamin": "0=Perempuan, 1=Laki-laki",
+    "Riwayat_Keluarga/Batuk_Kronis": "0=Tidak, 1=Ya",
+    "Posisi_Tidur": "0..2"
+  },
+  "metrics_deploy": {
+    "model": "MixedNB (Tier-1)",
+    "accuracy": 0.8579,
+    "f1_macro": 0.8578,
+    "f1_weighted": 0.8578,
+    "cv_f1_macro": 0.8604,
+    "var_smoothing": 1e-09,
+    "cat_alpha": 0.1,
+    "n_features": 19
+  },
+  "metrics_comparison": [
+    {
+      "model": "MixedNB (Tier-1)",
+      "accuracy": 0.8579,
+      "f1_macro": 0.8578,
+      "f1_weighted": 0.8578,
+      "cv_f1_macro": 0.8604,
+      "var_smoothing": 1e-09,
+      "cat_alpha": 0.1,
+      "n_features": 19
+    },
+    {
+      "model": "MixedNB (Tier-Full)",
+      "accuracy": 0.9567,
+      "f1_macro": 0.9565,
+      "f1_weighted": 0.9565,
+      "cv_f1_macro": 0.9625,
+      "var_smoothing": 1e-05,
+      "cat_alpha": 0.1,
+      "n_features": 26
+    },
+    {
+      "model": "GaussianNB-all (Tier-1)",
+      "accuracy": 0.8488,
+      "f1_macro": 0.8488,
+      "f1_weighted": 0.8488
+    },
+    {
+      "model": "CategoricalNB-binned (Tier-1)",
+      "accuracy": 0.8538,
+      "f1_macro": 0.8534,
+      "f1_weighted": 0.8534
+    },
+    {
+      "model": "RandomForest (Tier-1, ref)",
+      "accuracy": 0.8296,
+      "f1_macro": 0.8292,
+      "f1_weighted": 0.8292
+    },
+    {
+      "model": "XGBoost (Tier-1, ref)",
+      "accuracy": 0.8337,
+      "f1_macro": 0.8334,
+      "f1_weighted": 0.8334
+    }
+  ],
+  "disclaimer": "Model demonstrasi berbasis dataset sintetis. Bukan alat diagnosis medis definitif; 'Normal' berarti tidak terindikasi GERD, bukan sehat total. Wajib validasi klinis dengan data rekam medis nyata."
+}
