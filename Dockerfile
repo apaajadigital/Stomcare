@@ -33,7 +33,10 @@ RUN pip install --no-cache-dir -r requirements-deploy.txt
 ENV PYTHON_PATH=/usr/local/bin/python3 \
     APP_ENV=production \
     APP_DEBUG=false \
-    LOG_CHANNEL=stderr
+    LOG_CHANNEL=stderr \
+    SESSION_DRIVER=file \
+    CACHE_STORE=file \
+    QUEUE_CONNECTION=sync
 
 RUN chmod +x docker-entrypoint.sh \
     && mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache database \
