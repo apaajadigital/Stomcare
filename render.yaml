@@ -1,0 +1,38 @@
+# Render Blueprint - StomaCare (Docker, utuh: PHP + Python + model)
+# Deploy: Render Dashboard -> New -> Blueprint -> pilih repo ini.
+services:
+  - type: web
+    name: stomacare
+    runtime: docker
+    plan: free                 # free tier "tidur" saat idle (cold start ~30-50 dtk)
+    healthCheckPath: /
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        value: base64:7bzHcXFvpfuhpQmYfeTDAqD8g9QBp8fogUCNtUX6xII=
+      - key: APP_URL
+        sync: false            # isi manual dgn URL Render setelah tersedia
+      - key: PYTHON_PATH
+        value: /opt/venv/bin/python
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr
+    # --- Persistensi data (pilih salah satu) ---
+    # (1) SQLite + Disk  [disk butuh paket BERBAYAR di Render]:
+    # disk:
+    #   name: sqlite-data
+    #   mountPath: /app/database
+    #   sizeGB: 1
+    # (2) Postgres gratis: buat database Postgres di Render, lalu set env:
+    #   DB_CONNECTION=pgsql, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+    #   (dan tambahkan pdo_pgsql pada Dockerfile: docker-php-ext-install ... pdo_pgsql)

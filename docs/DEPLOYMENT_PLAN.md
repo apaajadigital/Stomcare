@@ -33,18 +33,15 @@
 
 ## 4. LANGKAH — Railway (jalur utama)
 
-### Langkah 1 — Jadikan `stomacare/stomacare` sebuah repo Git & push ke GitHub
-Jalankan di dalam folder `stomacare/stomacare` (bukan folder induk):
+### Langkah 1 — Push ke GitHub
+Repo **sudah di-`init`, di-`commit`, dan remote sudah diarahkan** ke `https://github.com/apaajadigital/Stomcare.git`
+(branch `main`, 136 file, `vendor/`/`venv/` sudah dikecualikan). Anda tinggal **push** — jalankan di dalam `stomacare/stomacare`:
 ```bash
-git init
-git add .
-git commit -m "StomaCare: hybrid Naive Bayes + Docker deploy"
-git branch -M main
-# buat repo kosong di github.com dulu, lalu:
-git remote add origin https://github.com/USERNAME/stomacare.git
 git push -u origin main
 ```
-> Pastikan `Dockerfile` berada di **root repo** (yaitu di `stomacare/stomacare/`). Folder lokal `php/`, `php84/`, `composer/` ada di folder INDUK sehingga TIDAK ikut ter-push — itu benar.
+> Push butuh autentикasi GitHub Anda (login/Personal Access Token). Bila diminta, gunakan username GitHub + **PAT** (Settings → Developer settings → Personal access tokens) sebagai password. Jika ada perubahan baru: `git add -A && git commit -m "update" && git push`.
+>
+> `Dockerfile` sudah di **root repo** (`stomacare/stomacare/`). Folder lokal `php/`, `php84/`, `composer/` ada di folder INDUK → tidak ikut ter-push (benar).
 
 ### Langkah 2 — Buat project di Railway
 1. Railway → **New Project** → **Deploy from GitHub repo** → pilih repo `stomacare`.
@@ -94,12 +91,21 @@ Railway → service → **Settings → Networking → Generate Domain**. Salin U
 
 ---
 
-## 6. (Opsional) Tetap pakai Vercel untuk bagian ML
-Jika Anda ingin nama “Vercel” tetap terlibat: pindahkan HANYA inferensi ML ke **Vercel Python Function**:
-- Buat `api/predict.py` (logika `ai_predict.py`) + `requirements.txt` (numpy, scipy, scikit-learn) + sertakan `model_web/*.pkl`.
-- Ganti `Process::run(...)` di `AnalysisController` menjadi `Illuminate\Support\Facades\Http::post(env('ML_API_URL'), $aiFeatures)`.
-- Web (Laravel) tetap di Railway/Render. Ini “Jalur A (Hybrid)”. Butuh refactor ~1 file + set `ML_API_URL`.
-> Untuk **utuh & paling stabil**, Docker-container (bagian 4) lebih disarankan.
+## 6. (Opsional) Vercel untuk bagian ML — SUDAH DISIAPKAN
+Folder **`ml-vercel/`** sudah berisi fungsi Vercel siap deploy:
+- `ml-vercel/api/predict.py` — endpoint `POST /api/predict` (logika hybrid sama persis, sudah diuji lokal)
+- `ml-vercel/requirements.txt` — numpy/scipy/scikit-learn (pinned)
+- `ml-vercel/vercel.json` — konfigurasi + `includeFiles` model
+- `ml-vercel/model_web/` — salinan model (kecil, ~16 KB)
+
+**Deploy fungsi ML ke Vercel:**
+1. Vercel → New Project → import repo → **Root Directory: `ml-vercel`** → Deploy.
+2. Salin URL fungsi, mis. `https://stomacare-ml.vercel.app/api/predict`.
+
+**Sambungkan ke Laravel (dual-mode sudah ada di controller):**
+- Set env di Railway/Render: `ML_API_URL=https://stomacare-ml.vercel.app/api/predict`.
+- Controller otomatis memakai HTTP (bukan subprocess) bila `ML_API_URL` diset; bila kosong → subprocess lokal.
+> Dengan ini bagian ML **benar-benar di Vercel**, web di Railway/Render. Untuk **utuh & paling sederhana**, biarkan `ML_API_URL` kosong (subprocess di container).
 
 ---
 
@@ -116,6 +122,6 @@ Jika Anda ingin nama “Vercel” tetap terlibat: pindahkan HANYA inferensi ML k
 ---
 
 ## 8. Catatan penting
-- `php artisan serve` cukup untuk demo/sidang, tapi single-worker (saat menunggu Python, request lain antre). Untuk trafik nyata, ganti ke **FrankenPHP** (1 binary) atau **nginx + php-fpm** + `php-fpm` memanggil Python. Bisa saya siapkan bila diperlukan.
+- `php artisan serve` (Dockerfile default) cukup untuk demo/sidang, tapi single-worker. **Upgrade FrankenPHP sudah disiapkan**: `Dockerfile.frankenphp` + `docker-entrypoint-frankenphp.sh`. Cara pakai: rename `Dockerfile.frankenphp` menjadi `Dockerfile` lalu commit & push. (Belum diuji-build lokal karena mesin ini tanpa Docker.)
 - Versi Python di-pin (`requirements-deploy.txt`) agar `*.pkl` termuat tanpa error versi scikit-learn.
 - Model & inferensi TIDAK berubah — hasil di produksi identik dengan lokal.

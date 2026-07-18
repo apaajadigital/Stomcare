@@ -6,6 +6,7 @@ use App\Models\Analysis;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class AnalysisController extends Controller
@@ -104,29 +105,39 @@ class AnalysisController extends Controller
         }
         $aiFeatures = array_merge($aiFeatures, $symptomFlags);
 
-        // Panggil engine Python HYBRID (severity Mixed NB + symptom BernoulliNB)
-        $pythonPath = env('PYTHON_PATH', 'python');
-        $pythonScript = base_path('model_web/ai_predict.py');
-
+        // Panggil engine AI HYBRID. Dua mode:
+        //  - Jika ML_API_URL diset (mis. Vercel Python Function) -> panggil via HTTP.
+        //  - Jika tidak -> jalankan subprocess Python lokal (default, deploy container "utuh").
+        $mlApiUrl = env('ML_API_URL');
         try {
-            $result = Process::input(json_encode($aiFeatures))
-                ->path(base_path())
-                ->env([
-                    'SYSTEMROOT' => getenv('SYSTEMROOT') ?: 'C:\\Windows',
-                    'PATH'       => getenv('PATH'),
-                ])
-                ->run([$pythonPath, $pythonScript]);
+            if (!empty($mlApiUrl)) {
+                $response = Http::timeout(25)->acceptJson()->post($mlApiUrl, $aiFeatures);
+                if (!$response->successful()) {
+                    Log::error('AI API Failed', ['status' => $response->status(), 'body' => $response->body()]);
+                    return back()->with('error', 'Gagal memanggil API AI (HTTP ' . $response->status() . ').')->withInput();
+                }
+                $output = $response->json();
+            } else {
+                $pythonPath = env('PYTHON_PATH', 'python');
+                $pythonScript = base_path('model_web/ai_predict.py');
+                $result = Process::input(json_encode($aiFeatures))
+                    ->path(base_path())
+                    ->env([
+                        'SYSTEMROOT' => getenv('SYSTEMROOT') ?: 'C:\\Windows',
+                        'PATH'       => getenv('PATH'),
+                    ])
+                    ->run([$pythonPath, $pythonScript]);
 
-            if (!$result->successful()) {
-                Log::error('AI Analysis Failed', [
-                    'exit_code'    => $result->exitCode(),
-                    'error_output' => $result->errorOutput(),
-                    'output'       => $result->output(),
-                ]);
-                return back()->with('error', 'Gagal menjalankan analisa AI: ' . $result->errorOutput())->withInput();
+                if (!$result->successful()) {
+                    Log::error('AI Analysis Failed', [
+                        'exit_code'    => $result->exitCode(),
+                        'error_output' => $result->errorOutput(),
+                        'output'       => $result->output(),
+                    ]);
+                    return back()->with('error', 'Gagal menjalankan analisa AI: ' . $result->errorOutput())->withInput();
+                }
+                $output = json_decode($result->output(), true);
             }
-
-            $output = json_decode($result->output(), true);
         } catch (\Exception $e) {
             Log::error('AI Process Exception', ['message' => $e->getMessage()]);
             return back()->with('error', 'Exception saat menjalankan AI: ' . $e->getMessage())->withInput();
