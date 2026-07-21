@@ -11,6 +11,8 @@ class AnalysisTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DISEASE_CLASSES = ['Dispepsia', 'GERD', 'Gastritis', 'Normal', 'Tukak Lambung', 'Tidak dapat mendiagnosis'];
+
     private function validPayload(array $overrides = []): array
     {
         return array_merge([
@@ -19,6 +21,7 @@ class AnalysisTest extends TestCase
             'waktu_makan_tidur' => 2, 'nsaid' => 1, 'stres' => 2, 'riwayat_keluarga' => 1,
             'kafein' => 2, 'makanan_pedas' => 2, 'makanan_berlemak' => 2, 'posisi_tidur' => 1,
             'batuk_kronis' => 0, 'aktivitas_fisik' => 1, 'minuman_soda' => 2, 'kualitas_tidur' => 1,
+            // gejala biner -> input model BernoulliNB
             'symptoms' => ['acidity' => '1', 'stomach_pain' => '1', 'indigestion' => '1'],
         ], $overrides);
     }
@@ -28,10 +31,10 @@ class AnalysisTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user)->get(route('analysis.index'))
             ->assertOk()
-            ->assertSee('Analisa Risiko GERD');
+            ->assertSee('Gejala yang Dialami');
     }
 
-    public function test_store_runs_model_and_saves_severity_prediction(): void
+    public function test_store_runs_single_model_and_saves_disease_prediction(): void
     {
         $user = User::factory()->create();
 
@@ -40,36 +43,42 @@ class AnalysisTest extends TestCase
         $this->assertDatabaseCount('analyses', 1);
         $analysis = Analysis::first();
 
-        $valid = ['Normal', 'GERD Ringan', 'GERD Sedang', 'GERD Berat', 'Komplikasi', 'Tidak dapat mendiagnosis'];
-        $this->assertContains($analysis->ai_prediction, $valid, 'Prediksi keparahan harus valid');
+        // Prediksi = tipe gangguan (model tunggal BernoulliNB)
+        $this->assertContains($analysis->ai_prediction, self::DISEASE_CLASSES, 'Prediksi tipe gangguan harus valid');
         $this->assertContains($analysis->result_status, ['NORMAL', 'PERHATIAN', 'EMERGENCY']);
-        $this->assertNotNull($analysis->bmi);
         $this->assertIsArray($analysis->ai_probabilities);
-        $this->assertEqualsWithDelta(1.0, array_sum($analysis->ai_probabilities), 0.01, 'Probabilitas keparahan ~1');
+        $this->assertCount(5, $analysis->ai_probabilities, 'Harus ada 5 kelas');
+        $this->assertEqualsWithDelta(1.0, array_sum($analysis->ai_probabilities), 0.02, 'Probabilitas ~1');
 
-        // HYBRID: model gejala ASLAM juga tersimpan
-        $symValid = ['Dispepsia', 'GERD', 'Gastritis', 'Normal', 'Tukak Lambung', 'Tidak dapat mendiagnosis'];
-        $this->assertContains($analysis->symptom_prediction, $symValid, 'Prediksi tipe gangguan harus valid');
-        $this->assertIsArray($analysis->symptom_probabilities);
+        // Fitur subjektif DISIMPAN (informasi), tapi TIDAK dipakai model
+        $this->assertNotNull($analysis->bmi);
+        $this->assertEquals(2, $analysis->stres);
+        // Mode single-model: kolom hybrid tidak dipakai
+        $this->assertNull($analysis->symptom_prediction);
 
         $response->assertRedirect(route('analysis.result', $analysis->id));
     }
 
-    public function test_high_risk_profile_predicts_worse_than_healthy_profile(): void
+    public function test_no_symptoms_predicts_normal(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)->post(route('analysis.store'), $this->validPayload([
-            'usia' => 24, 'tinggi_badan' => 170, 'berat_badan' => 60, // BMI ~20.8
-            'heartburn' => 0, 'regurgitasi' => 0, 'merokok' => 0, 'alkohol' => 0,
-            'waktu_makan_tidur' => 0, 'nsaid' => 0, 'stres' => 0, 'riwayat_keluarga' => 0,
-            'kafein' => 0, 'makanan_pedas' => 0, 'makanan_berlemak' => 0, 'posisi_tidur' => 0,
-            'batuk_kronis' => 0, 'aktivitas_fisik' => 3, 'minuman_soda' => 0, 'kualitas_tidur' => 3,
+            'symptoms' => [], // tanpa gejala -> Normal (perilaku model)
         ]));
-        $healthy = Analysis::latest('id')->first();
+        $a = Analysis::latest('id')->first();
 
-        $this->assertEquals('Normal', $healthy->ai_prediction, 'Profil sehat seharusnya Normal');
-        $this->assertEquals('NORMAL', $healthy->result_status);
+        $this->assertEquals('Normal', $a->ai_prediction, 'Tanpa gejala seharusnya Normal');
+        $this->assertEquals('NORMAL', $a->result_status);
+    }
+
+    public function test_gerd_symptoms_are_not_normal(): void
+    {
+        $user = User::factory()->create();
+        // acidity + stomach_pain + indigestion -> harus terdeteksi (bukan Normal)
+        $this->actingAs($user)->post(route('analysis.store'), $this->validPayload());
+        $a = Analysis::latest('id')->first();
+        $this->assertNotEquals('Normal', $a->ai_prediction, 'Dengan gejala GERD, hasil tidak boleh Normal');
     }
 
     public function test_store_requires_valid_input(): void

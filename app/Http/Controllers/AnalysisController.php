@@ -11,13 +11,13 @@ use Illuminate\Support\Facades\Log;
 
 class AnalysisController extends Controller
 {
-    /** Peta kelas keparahan GERD -> status severity aplikasi. */
-    private const SEVERITY_STATUS = [
-        'Normal'      => 'NORMAL',
-        'GERD Ringan' => 'PERHATIAN',
-        'GERD Sedang' => 'PERHATIAN',
-        'GERD Berat'  => 'EMERGENCY',
-        'Komplikasi'  => 'EMERGENCY',
+    /** Peta tipe gangguan (BernoulliNB) -> status aplikasi. */
+    private const DISEASE_STATUS = [
+        'Normal'        => 'NORMAL',
+        'GERD'          => 'PERHATIAN',
+        'Dispepsia'     => 'PERHATIAN',
+        'Gastritis'     => 'EMERGENCY',
+        'Tukak Lambung' => 'EMERGENCY',
     ];
 
     /** Fitur subjektif diskret: nama form (snake_case) => kunci model (CamelCase). */
@@ -87,25 +87,15 @@ class AnalysisController extends Controller
         $tinggiM = $validated['tinggi_badan'] / 100;
         $bmi = $tinggiM > 0 ? round($validated['berat_badan'] / ($tinggiM * $tinggiM), 1) : 0;
 
-        // Susun input untuk model (kunci CamelCase sesuai metadata.json)
-        $aiFeatures = [
-            'Usia'          => (int) $validated['usia'],
-            'BMI'           => $bmi,
-            'Jenis_Kelamin' => (int) $validated['jenis_kelamin'],
-        ];
-        foreach (self::FEATURE_MAP as $formKey => $modelKey) {
-            $aiFeatures[$modelKey] = (int) $validated[$formKey];
-        }
-
-        // Gejala biner (model ASLAM) - digabung ke input yang sama
+        // Input MODEL = HANYA 20 gejala biner (fitur subjektif TIDAK dikirim ke model).
         $symptomsInput = $request->input('symptoms', []);
         $symptomFlags = [];
         foreach (self::SYMPTOM_FEATURES as $sym) {
             $symptomFlags[$sym] = !empty($symptomsInput[$sym]) ? 1 : 0;
         }
-        $aiFeatures = array_merge($aiFeatures, $symptomFlags);
+        $aiFeatures = $symptomFlags; // payload ke Python = gejala saja
 
-        // Panggil engine AI HYBRID. Dua mode:
+        // Panggil engine AI (BernoulliNB tunggal). Dua mode:
         //  - Jika ML_API_URL diset (mis. Vercel Python Function) -> panggil via HTTP.
         //  - Jika tidak -> jalankan subprocess Python lokal (default, deploy container "utuh").
         $mlApiUrl = env('ML_API_URL');
@@ -152,27 +142,23 @@ class AnalysisController extends Controller
             return back()->with('error', 'AI Error: ' . ($output['message'] ?? 'unknown'))->withInput();
         }
 
-        // Output HYBRID: dua model berdampingan
-        $severity = $output['severity'] ?? [];
-        $symptom  = $output['symptom'] ?? [];
-        $prediction    = $severity['prediction'] ?? 'Tidak dapat mendiagnosis';  // keparahan GERD
-        $probabilities = $severity['probabilities'] ?? [];
-        $symptomPred   = $symptom['prediction'] ?? 'Tidak dapat mendiagnosis';    // tipe gangguan (ASLAM)
-        $symptomProbs  = $symptom['probabilities'] ?? [];
+        // Output SINGLE model: tipe gangguan + probabilitas per-kelas
+        $prediction    = $output['prediction'] ?? 'Tidak dapat mendiagnosis';
+        $probabilities = $output['probabilities'] ?? [];
 
-        // Status keseluruhan diambil dari tingkat keparahan
-        $status = self::SEVERITY_STATUS[$prediction] ?? 'NORMAL';
-        $recommendation = $this->buildRecommendation($prediction, $symptomPred, $status, $aiFeatures, $bmi);
+        // Status dari tipe gangguan
+        $status = self::DISEASE_STATUS[$prediction] ?? 'NORMAL';
+        $recommendation = $this->buildRecommendation($prediction, $status, $validated, $bmi);
 
         // Simpan record
         $analysis = new Analysis();
         $analysis->user_id          = Auth::id();
         $analysis->result_status    = $status;
         $analysis->recommendation   = $recommendation;
-        $analysis->ai_prediction    = $prediction;          // keparahan GERD (Mixed NB)
+        $analysis->ai_prediction    = $prediction;          // tipe gangguan (BernoulliNB)
         $analysis->ai_probabilities = $probabilities;
-        $analysis->symptom_prediction    = $symptomPred;    // tipe gangguan (ASLAM BernoulliNB)
-        $analysis->symptom_probabilities = $symptomProbs;
+        $analysis->symptom_prediction    = null;            // (mode single-model: tidak dipakai)
+        $analysis->symptom_probabilities = null;
 
         $analysis->usia          = $validated['usia'];
         $analysis->jenis_kelamin = $validated['jenis_kelamin'];
@@ -191,46 +177,47 @@ class AnalysisController extends Controller
             ->with('success', 'Analisa AI berhasil diselesaikan.');
     }
 
-    /** Bangun rekomendasi berbasis tingkat keparahan + tipe gangguan + personalisasi gaya hidup. */
-    private function buildRecommendation(string $prediction, string $symptomPred, string $status, array $f, float $bmi): string
+    /**
+     * Rekomendasi berbasis TIPE gangguan (hasil model) + tips gaya hidup.
+     * Catatan: data subjektif ($v) hanya dipakai untuk saran gaya hidup (informasi),
+     * BUKAN sebagai input model/prediksi.
+     */
+    private function buildRecommendation(string $prediction, string $status, array $v, float $bmi): string
     {
         if ($prediction === 'Tidak dapat mendiagnosis') {
-            return 'Model belum dapat menyimpulkan kondisi Anda secara meyakinkan. '
-                . 'Lengkapi data gejala/gaya hidup atau konsultasikan ke dokter untuk pemeriksaan klinis.';
+            return 'Model belum dapat menyimpulkan kondisi Anda secara meyakinkan dari gejala yang dipilih. '
+                . 'Lengkapi gejala yang dialami atau konsultasikan ke dokter untuk pemeriksaan klinis.';
         }
 
-        // Kalimat pembuka per keparahan
+        // Kalimat pembuka per tipe gangguan
         $intro = match ($prediction) {
-            'Normal'      => 'Hasil analisa AI: tidak terindikasi GERD (Normal). Pertahankan pola hidup sehat.',
-            'GERD Ringan' => 'Hasil analisa AI: indikasi GERD Ringan. Perbaikan gaya hidup umumnya cukup efektif.',
-            'GERD Sedang' => 'Hasil analisa AI: indikasi GERD Sedang. Perbaikan gaya hidup diperlukan dan pertimbangkan konsultasi dokter.',
-            'GERD Berat'  => 'Hasil analisa AI: indikasi GERD Berat. Disarankan segera konsultasi ke dokter spesialis.',
-            'Komplikasi'  => 'Hasil analisa AI: indikasi Komplikasi GERD. Segera periksa ke dokter spesialis gastroenterologi.',
-            default       => 'Hasil analisa AI: ' . $prediction . '.',
+            'Normal'        => 'Hasil analisa AI: tidak terindikasi gangguan pencernaan spesifik (Normal). Pertahankan pola hidup sehat.',
+            'GERD'          => 'Hasil analisa AI: indikasi GERD (asam lambung naik ke kerongkongan). Perbaikan gaya hidup & pola makan sangat membantu.',
+            'Dispepsia'     => 'Hasil analisa AI: indikasi Dispepsia (gangguan pencernaan/maag). Atur pola makan dan hindari faktor pemicu.',
+            'Gastritis'     => 'Hasil analisa AI: indikasi Gastritis (peradangan lambung). Disarankan konsultasi dokter untuk penanganan yang tepat.',
+            'Tukak Lambung' => 'Hasil analisa AI: indikasi Tukak Lambung. Segera periksa ke dokter untuk evaluasi lebih lanjut.',
+            default         => 'Hasil analisa AI: ' . $prediction . '.',
         };
 
-        // Tips personalisasi berdasarkan input gaya hidup
+        // Tips gaya hidup dari data tambahan (INFORMASI - tidak memengaruhi prediksi)
         $tips = [];
-        if ($bmi >= 25)               $tips[] = 'turunkan berat badan menuju IMT ideal (18,5–24,9)';
-        if (($f['Merokok'] ?? 0) >= 2)          $tips[] = 'hentikan atau kurangi kebiasaan merokok';
-        if (($f['Stres'] ?? 0) >= 2)            $tips[] = 'kelola stres (relaksasi, tidur cukup)';
-        if (($f['Makanan_Pedas'] ?? 0) >= 2 || ($f['Makanan_Berlemak'] ?? 0) >= 2) $tips[] = 'kurangi makanan pedas/berlemak';
-        if (($f['Kafein'] ?? 0) >= 2 || ($f['Minuman_Soda'] ?? 0) >= 2)            $tips[] = 'batasi kafein dan minuman bersoda';
-        if (($f['Waktu_Makan_Tidur'] ?? 0) >= 2) $tips[] = 'beri jeda minimal 3 jam antara makan malam dan tidur';
-        if (($f['Alkohol'] ?? 0) >= 2)          $tips[] = 'hindari konsumsi alkohol';
-        if (($f['Aktivitas_Fisik'] ?? 0) <= 1)  $tips[] = 'tingkatkan aktivitas fisik rutin';
+        if ($bmi >= 25)                          $tips[] = 'jaga berat badan menuju IMT ideal (18,5–24,9)';
+        if (($v['merokok'] ?? 0) >= 2)           $tips[] = 'kurangi atau hentikan kebiasaan merokok';
+        if (($v['stres'] ?? 0) >= 2)             $tips[] = 'kelola stres (relaksasi, tidur cukup)';
+        if (($v['makanan_pedas'] ?? 0) >= 2 || ($v['makanan_berlemak'] ?? 0) >= 2) $tips[] = 'kurangi makanan pedas/berlemak';
+        if (($v['kafein'] ?? 0) >= 2 || ($v['minuman_soda'] ?? 0) >= 2)            $tips[] = 'batasi kafein dan minuman bersoda';
+        if (($v['waktu_makan_tidur'] ?? 0) >= 2) $tips[] = 'beri jeda minimal 3 jam antara makan malam dan tidur';
+        if (($v['alkohol'] ?? 0) >= 2)           $tips[] = 'hindari konsumsi alkohol';
+        if (($v['aktivitas_fisik'] ?? 0) <= 1)   $tips[] = 'tingkatkan aktivitas fisik rutin';
 
         $rec = $intro;
-        if (!in_array($symptomPred, ['Normal', 'Tidak dapat mendiagnosis'], true)) {
-            $rec .= ' Berdasarkan pola gejala yang dicentang, model juga mengindikasikan kemungkinan tipe gangguan: ' . $symptomPred . '.';
-        }
         if (!empty($tips)) {
-            $rec .= ' Saran khusus untuk Anda: ' . implode('; ', $tips) . '.';
+            $rec .= ' Saran gaya hidup untuk Anda: ' . implode('; ', $tips) . '.';
         }
         if ($status === 'EMERGENCY') {
-            $rec .= ' Jangan menunda pemeriksaan medis profesional.';
+            $rec .= ' Sebaiknya jangan menunda pemeriksaan medis profesional.';
         }
-        $rec .= ' (Catatan: hasil ini bukan diagnosis medis definitif.)';
+        $rec .= ' (Catatan: hasil ini pra-diagnosa AI, bukan diagnosis medis definitif.)';
 
         return $rec;
     }

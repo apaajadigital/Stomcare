@@ -6,10 +6,10 @@
 <main class="mt-32 mb-section-gap max-w-container-max mx-auto px-gutter">
     <!-- Hero Section -->
     <div class="mb-margin text-center">
-        <h1 class="font-headline-xl text-headline-xl text-on-surface mb-4">Analisa Risiko GERD Berbasis Gaya Hidup</h1>
+        <h1 class="font-headline-xl text-headline-xl text-on-surface mb-4">Analisa Gangguan Pencernaan Berbasis Gejala</h1>
         <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
-            Model <strong>Naive Bayes</strong> kami menilai gejala, faktor risiko, pola makan, kebiasaan, IMT, usia, dan tingkat stres Anda
-            untuk memperkirakan tingkat keparahan GERD (Normal hingga Komplikasi).
+            Model <strong>Naive Bayes (BernoulliNB)</strong> menilai <strong>gejala yang Anda alami</strong> untuk memperkirakan
+            tipe gangguan pencernaan: <strong>Normal, GERD, Dispepsia, Gastritis, atau Tukak Lambung</strong>.
         </p>
     </div>
 
@@ -118,7 +118,50 @@
                     <p id="bmiInfo" class="mt-4 text-label-sm text-on-surface-variant">IMT akan dihitung otomatis dari tinggi &amp; berat badan.</p>
                 </section>
 
-                <!-- Sections dinamis: gejala, pola makan, gaya hidup, faktor risiko -->
+                <!-- Section UTAMA: Gejala yang Dialami (INPUT MODEL BernoulliNB) -->
+                @php
+                    $symptomsList = [
+                        'itching' => 'Gatal-gatal', 'stomach_pain' => 'Sakit Perut', 'headache' => 'Sakit Kepala',
+                        'chills' => 'Meriang / Menggigil', 'toxic_look_(typhos)' => 'Wajah Pucat / Terlihat Sakit',
+                        'belly_pain' => 'Nyeri Perut Bawah', 'internal_itching' => 'Gatal Bagian Dalam',
+                        'passage_of_gases' => 'Sering Buang Angin', 'indigestion' => 'Gangguan Pencernaan / Maag',
+                        'fatigue' => 'Kelelahan / Lemas', 'diarrhoea' => 'Diare', 'ulcers_on_tongue' => 'Sariawan / Luka di Lidah',
+                        'acidity' => 'Asam Lambung Naik', 'abdominal_pain' => 'Nyeri Perut Atas',
+                        'irritation_in_anus' => 'Iritasi pada Anus', 'pain_in_anal_region' => 'Nyeri pada Daerah Anus',
+                        'cough' => 'Batuk', 'high_fever' => 'Demam Tinggi', 'bloody_stool' => 'BAB Berdarah',
+                        'pain_during_bowel_movements' => 'Nyeri Saat BAB',
+                    ];
+                @endphp
+                <section class="bg-surface-container-lowest p-margin rounded-xl soft-shadow mb-8 border-2 border-primary/40">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="material-symbols-outlined text-primary">checklist</span>
+                        <h2 class="font-headline-md text-headline-md">Gejala yang Dialami</h2>
+                        <span class="ml-auto text-label-sm text-on-primary bg-primary px-3 py-1 rounded-full">menentukan hasil AI</span>
+                    </div>
+                    <p class="text-label-sm text-on-surface-variant mb-6">
+                        Centang semua gejala yang Anda rasakan. <strong>Bagian ini yang menentukan hasil prediksi AI.</strong>
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        @foreach($symptomsList as $key => $label)
+                        <label class="flex items-start gap-3 p-4 bg-background border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors">
+                            <input type="checkbox" name="symptoms[{{ $key }}]" value="1" @checked(old("symptoms.$key"))
+                                   class="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer">
+                            <span class="font-body-md text-on-surface">{{ $label }}</span>
+                        </label>
+                        @endforeach
+                    </div>
+                </section>
+
+                <!-- Pembatas: informasi tambahan (TIDAK memengaruhi hasil AI) -->
+                <div class="flex items-center gap-3 mb-6 mt-10">
+                    <span class="material-symbols-outlined text-on-surface-variant">info</span>
+                    <div>
+                        <h2 class="font-headline-md text-headline-md text-on-surface-variant">Informasi Tambahan</h2>
+                        <p class="text-label-sm text-on-surface-variant">Untuk catatan &amp; saran gaya hidup — <strong>tidak memengaruhi hasil prediksi AI</strong>.</p>
+                    </div>
+                </div>
+
+                <!-- Sections informasi tambahan: pola makan, gaya hidup, faktor risiko -->
                 @foreach ($sections as $title => $section)
                 <section class="bg-surface-container-lowest p-margin rounded-xl soft-shadow mb-8 border border-outline-variant/30">
                     <div class="flex items-center gap-3 mb-6">
@@ -141,49 +184,6 @@
                 </section>
                 @endforeach
 
-                <!-- Section: Gejala Umum (ceklis) untuk model ASLAM -->
-                <section class="bg-surface-container-lowest p-margin rounded-xl soft-shadow mb-8 border border-outline-variant/30">
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="material-symbols-outlined text-primary">checklist</span>
-                        <h2 class="font-headline-md text-headline-md">Gejala yang Dialami (Ceklis)</h2>
-                    </div>
-                    <p class="text-label-sm text-on-surface-variant mb-4 italic">
-                        <strong>Opsional.</strong> Centang gejala untuk mengaktifkan perkiraan <strong>tipe gangguan</strong> (model ASLAM Naive Bayes). Boleh dilewati bila Anda hanya ingin memeriksa tingkat keparahan GERD.
-                    </p>
-                    @php
-                        $symptomsList = [
-                            'itching' => 'Gatal-gatal', 'stomach_pain' => 'Sakit Perut', 'headache' => 'Sakit Kepala',
-                            'chills' => 'Meriang / Menggigil', 'toxic_look_(typhos)' => 'Wajah Pucat / Terlihat Sakit',
-                            'belly_pain' => 'Nyeri Perut Bawah', 'internal_itching' => 'Gatal Bagian Dalam',
-                            'passage_of_gases' => 'Sering Buang Angin', 'indigestion' => 'Gangguan Pencernaan / Maag',
-                            'fatigue' => 'Kelelahan / Lemas', 'diarrhoea' => 'Diare', 'ulcers_on_tongue' => 'Sariawan / Luka di Lidah',
-                            'acidity' => 'Asam Lambung Naik', 'abdominal_pain' => 'Nyeri Perut Atas',
-                            'irritation_in_anus' => 'Iritasi pada Anus', 'pain_in_anal_region' => 'Nyeri pada Daerah Anus',
-                            'cough' => 'Batuk', 'high_fever' => 'Demam Tinggi', 'bloody_stool' => 'BAB Berdarah',
-                            'pain_during_bowel_movements' => 'Nyeri Saat BAB',
-                        ];
-                    @endphp
-                    @php $symptomCount = collect($symptomsList)->keys()->filter(fn($k) => old("symptoms.$k"))->count(); @endphp
-                    <details class="group border border-outline-variant rounded-lg overflow-hidden" @if($symptomCount) open @endif>
-                        <summary class="flex items-center justify-between gap-3 p-4 cursor-pointer bg-background hover:bg-surface-container-low transition-colors select-none">
-                            <span class="flex items-center gap-2 font-label-sm text-on-surface">
-                                <span class="material-symbols-outlined text-primary transition-transform group-open:rotate-180">expand_more</span>
-                                Tampilkan / sembunyikan 20 gejala
-                            </span>
-                            <span class="text-label-sm text-on-surface-variant px-2 py-0.5 rounded-full bg-surface-container">opsional</span>
-                        </summary>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-outline-variant/50">
-                            @foreach($symptomsList as $key => $label)
-                            <label class="flex items-start gap-3 p-4 bg-background border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors">
-                                <input type="checkbox" name="symptoms[{{ $key }}]" value="1" @checked(old("symptoms.$key"))
-                                       class="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer">
-                                <span class="font-body-md text-on-surface">{{ $label }}</span>
-                            </label>
-                            @endforeach
-                        </div>
-                    </details>
-                </section>
-
                 <div class="flex justify-end pt-4">
                     <button class="bg-primary text-on-primary px-12 py-5 rounded-full font-headline-md flex items-center gap-3 hover:opacity-90 active:scale-95 transition-all shadow-xl hover:shadow-primary/20" type="submit">
                         Mulai Analisis AI
@@ -198,12 +198,12 @@
             <div class="bg-secondary-container p-gutter rounded-2xl">
                 <h3 class="font-headline-md text-on-secondary-container mb-3 flex items-center gap-2">
                     <span class="material-symbols-outlined">psychology</span>
-                    Mesin AI Mixed Naive Bayes
+                    Mesin AI BernoulliNB
                 </h3>
                 <p class="text-body-md text-on-secondary-container opacity-90 leading-relaxed">
-                    Model probabilistik <strong>GaussianNB</strong> (untuk data numerik seperti usia &amp; IMT) dipadukan dengan
-                    <strong>CategoricalNB</strong> (untuk faktor gaya hidup) guna memperkirakan tingkat keparahan GERD Anda
-                    dari 5 kelas: Normal, Ringan, Sedang, Berat, dan Komplikasi.
+                    Model probabilistik <strong>Bernoulli Naive Bayes</strong> menganalisis pola <strong>gejala biner</strong>
+                    (dataset Kaggle) untuk memperkirakan tipe gangguan pencernaan dari 5 kelas:
+                    <strong>Normal, GERD, Dispepsia, Gastritis, Tukak Lambung</strong>. Akurasi model ± 96%.
                 </p>
             </div>
 
@@ -219,7 +219,7 @@
                     </li>
                     <li class="flex gap-4">
                         <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold">2</span></div>
-                        <p class="text-body-sm text-on-surface-variant">Semakin akurat data gaya hidup, semakin baik perkiraan tingkat keparahan.</p>
+                        <p class="text-body-sm text-on-surface-variant">Centang gejala selengkap mungkin — bagian ini yang menentukan hasil AI. Data lain hanya untuk catatan.</p>
                     </li>
                     <li class="flex gap-4">
                         <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold">3</span></div>
