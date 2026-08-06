@@ -161,7 +161,11 @@
             <div class="bg-primary/5 p-gutter rounded-2xl border border-primary/10">
                 <h4 class="font-headline-sm text-primary mb-3">Langkah Selanjutnya</h4>
                 <p class="text-body-sm text-on-surface-variant mb-4">
-                    Simpan laporan ini untuk ditunjukkan kepada dokter Anda. "Normal" berarti tidak terindikasi gangguan spesifik, bukan jaminan sehat total.
+                    Simpan laporan ini untuk ditunjukkan kepada dokter Anda.
+                    Model AI ini <strong>khusus mendeteksi 4 gangguan lambung</strong> (GERD, Dispepsia, Gastritis, Tukak Lambung).
+                    Hasil "Normal" berarti gejala Anda tidak cocok pola salah satu dari keempatnya — <strong>bukan berarti Anda pasti sehat</strong>.
+                    Jika gejala Anda mengarah ke kondisi lain di luar lambung (mis. alergi, infeksi, migrain, gangguan hati, dsb.), hasilnya akan tetap tampil "Normal" karena berada di luar cakupan model ini.
+                    Bila gejala berlanjut atau mengganggu, tetap periksakan diri ke dokter.
                 </p>
                 <div class="flex items-center gap-3 text-primary">
                     <span class="material-symbols-outlined">info</span>

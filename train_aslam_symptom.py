@@ -25,7 +25,7 @@ for df in (df_tr, df_te):
     df.drop(columns=["Unnamed: 133"], errors="ignore", inplace=True)
 df_all = pd.concat([df_tr, df_te], ignore_index=True)
 
-# --- TAHAP 2: FITUR (persis notebook ASLAM) ---
+# --- TAHAP 2: FITUR (persis notebook ASLAM, 20 gejala) ---
 SELECTED = ['stomach_pain', 'acidity', 'indigestion', 'abdominal_pain', 'belly_pain',
             'passage_of_gases', 'diarrhoea', 'bloody_stool', 'irritation_in_anus',
             'pain_in_anal_region', 'pain_during_bowel_movements', 'high_fever',
@@ -46,6 +46,22 @@ disease_map = {
 normal = [x for x in df_all['prognosis'].unique() if x not in disease_map]
 df_gi = df_all[df_all['prognosis'].isin(disease_map)].copy(); df_gi['label'] = df_gi['prognosis'].map(disease_map)
 df_no = df_all[df_all['prognosis'].isin(normal)].copy();      df_no['label'] = 'Normal'
+
+# --- TAHAP 3.1: KOREKSI BIAS DATASET SUMBER (per-penyakit rata 120 baris) ---
+# 'itching' di dataset sumber hanya "kuat" di 4 penyakit: Fungal infection & Allergy
+# (masuk bucket 'Normal') serta Chronic cholestasis/Drug Reaction/Jaundice (masuk
+# bucket 'Dispepsia'). Karena 'Normal' menumpuk 31 penyakit rata 120 baris, sinyal
+# gatal-gatal dari Fungal infection jadi "encer" (~3%) dibanding 'Dispepsia' yang
+# hanya 4 penyakit (~71%) -> model lama salah belajar "gatal-gatal -> Dispepsia".
+# Digandakan 15x supaya proporsi gatal-gatal pada 'Normal' merefleksikan kondisi
+# nyata: gatal-gatal tunggal jauh lebih sering karena kondisi kulit/alergi biasa
+# ketimbang penyakit hati langka (Jaundice dkk). Lihat diskusi & evaluasi akurasi.
+FUNGAL_BOOST = 15
+df_no = pd.concat(
+    [df_no] + [df_no[df_no['prognosis'] == 'Fungal infection']] * FUNGAL_BOOST,
+    ignore_index=True,
+)
+
 df = pd.concat([df_gi, df_no], ignore_index=True)
 cols = [c for c in SELECTED if c in df.columns]
 
@@ -118,9 +134,15 @@ meta = {
     },
     "alpha": float(best_alpha),
     "confidence_threshold": 0.60,
+    # Ambang KHUSUS saat hanya 1 gejala yang dicentang (informasi minim, rawan
+    # salah — lihat ai_predict.py). Ditemukan lewat sweep 20 gejala tunggal:
+    # tanpa ambang ini, 7/20 gejala (mis. diare/nyeri perut bawah sendirian)
+    # salah terklasifikasi sebagai Gastritis dgn keyakinan 65-79%.
+    "single_symptom_confidence_threshold": 0.85,
     "metrics": {"accuracy": round(acc, 4), "f1_macro": round(f1m, 4), "f1_weighted": round(f1w, 4),
                 "cv_f1_macro": round(best_cv, 4)},
     "disclaimer": "Model gejala biner (dataset Kaggle sintetis). Pra-diagnosa, bukan diagnosis medis.",
+    "fungal_infection_boost": FUNGAL_BOOST,
 }
 with open(os.path.join(OUT, "symptom_metadata.json"), "w", encoding="utf-8") as f:
     json.dump(meta, f, indent=2, ensure_ascii=False)

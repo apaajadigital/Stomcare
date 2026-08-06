@@ -67,13 +67,15 @@
     "Digestive_Distress": "abdominal_pain*passage_of_gases",
     "Gastritis_Indicator": "diarrhoea*belly_pain"
   },
-  "alpha": 0.001,
+  "alpha": 5.0,
   "confidence_threshold": 0.6,
+  "single_symptom_confidence_threshold": 0.85,
   "metrics": {
-    "accuracy": 0.9587,
-    "f1_macro": 0.9461,
-    "f1_weighted": 0.9598,
-    "cv_f1_macro": 0.9271
+    "accuracy": 0.9712,
+    "f1_macro": 0.9528,
+    "f1_weighted": 0.9721,
+    "cv_f1_macro": 0.9277
   },
-  "disclaimer": "Model gejala biner (dataset Kaggle sintetis). Pra-diagnosa, bukan diagnosis medis."
+  "disclaimer": "Model gejala biner (dataset Kaggle sintetis). Pra-diagnosa, bukan diagnosis medis.",
+  "fungal_infection_boost": 15
 }

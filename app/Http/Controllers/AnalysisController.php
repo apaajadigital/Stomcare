@@ -40,7 +40,14 @@ class AnalysisController extends Controller
         'kualitas_tidur'    => 'Kualitas_Tidur',
     ];
 
-    /** 20 gejala biner untuk model ASLAM (BernoulliNB). */
+    /**
+     * 20 gejala biner untuk model ASLAM (BernoulliNB).
+     * Catatan: dataset training (train_aslam_symptom.py) menggandakan baris
+     * 'Fungal infection' 15x di kelas 'Normal' untuk mengoreksi bias dataset
+     * sumber (gejala 'itching' dulu "encer" di kelas Normal krn ditumpuk 31
+     * penyakit lain, sehingga input gatal-gatal saja salah diklasifikasikan
+     * Dispepsia). Setelah koreksi, gatal-gatal tunggal benar terklasifikasi Normal.
+     */
     private const SYMPTOM_FEATURES = [
         'itching', 'stomach_pain', 'headache', 'chills', 'toxic_look_(typhos)',
         'belly_pain', 'internal_itching', 'passage_of_gases', 'indigestion',

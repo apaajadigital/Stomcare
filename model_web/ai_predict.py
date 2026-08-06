@@ -39,6 +39,7 @@ def main():
         base = meta["base_features"]
         order = meta["feature_order"]
         threshold = float(meta.get("confidence_threshold", 0.60))
+        single_symptom_threshold = float(meta.get("single_symptom_confidence_threshold", 0.85))
         model = _load("symptom_model.pkl")
 
         # bangun 20 gejala biner + hitung total
@@ -65,6 +66,12 @@ def main():
         if total == 0:
             # tanpa gejala -> Normal (perilaku ASLAM)
             prediction = "Normal"
+        elif total == 1 and conf < single_symptom_threshold:
+            # HANYA 1 gejala dicentang: informasi terlalu minim untuk model 20-fitur
+            # ini, sehingga rawan salah (mis. gejala non-lambung yang kebetulan
+            # cocok pola satu kelas). Perlu keyakinan lebih tinggi (>=85%) baru
+            # berani menyimpulkan; selain itu netral ke "Tidak dapat mendiagnosis".
+            prediction = "Tidak dapat mendiagnosis"
         elif conf < threshold:
             prediction = "Tidak dapat mendiagnosis"
         else:

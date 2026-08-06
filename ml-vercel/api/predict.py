@@ -72,6 +72,7 @@ def predict_symptom(data):
     classes = SYM_META["classes"]
     base, order = SYM_META["base_features"], SYM_META["feature_order"]
     thr = float(SYM_META.get("confidence_threshold", 0.60))
+    single_thr = float(SYM_META.get("single_symptom_confidence_threshold", 0.85))
 
     vals, total = {}, 0
     for feat in base:
@@ -91,6 +92,9 @@ def predict_symptom(data):
     pmap = {classes[k]: round(float(pr[k]), 4) for k in range(len(classes))}
     if total == 0:
         prediction, conf = "Normal", float(pmap.get("Normal", conf))
+    elif total == 1 and conf < single_thr:
+        # 1 gejala saja = informasi minim, rawan salah (lihat ai_predict.py)
+        prediction = "Tidak dapat mendiagnosis"
     elif conf < thr:
         prediction = "Tidak dapat mendiagnosis"
     else:
