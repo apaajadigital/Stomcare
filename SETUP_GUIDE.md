@@ -9,12 +9,14 @@
 > | **Database** | **SQLite** (`database/database.sqlite`). `.env` → `DB_CONNECTION=sqlite`. (MySQL tidak diperlukan.) |
 > | **Python** | Gunakan **virtualenv** `venv/`. Instal: `pip install -r requirements.txt` (numpy, scipy, scikit-learn, pandas, xgboost, joblib, matplotlib). |
 > | **`PYTHON_PATH` (.env)** | Path ke `venv/Scripts/python.exe` — **wajib di-quote** bila mengandung spasi, gunakan forward-slash. |
-> | **Model AI** | **Mixed Naive Bayes** (GaussianNB + CategoricalNB) untuk **keparahan GERD** (Normal/Ringan/Sedang/Berat/Komplikasi). Latih: `python train_clinical_nb.py`. Uji: `python test_predict.py`. |
+> | **Model AI** | **BernoulliNB tunggal** (`alpha=2.0`, 24 fitur) untuk **4 kelas penyakit lambung**: GERD, Dispepsia, Gastritis, Tukak Lambung. Latih: jalankan `ASLAM_NaiveBayes_FINAL_Revisi.ipynb` (set `EXPORT_FOR_WEBSITE = True`). Uji: `python test_predict.py`. |
+> | **Berkas model** | Hanya `model_web/symptom_model.pkl` + `symptom_metadata.json` yang dibaca saat runtime oleh `model_web/ai_predict.py`. |
 > | **Input website** | Fitur subjektif: usia, jenis kelamin, tinggi/berat (→IMT), heartburn, regurgitasi, merokok, alkohol, pola makan, kafein/soda, NSAID, aktivitas fisik, kualitas/posisi tidur, waktu makan-tidur, stres, riwayat keluarga, batuk kronis. |
 >
 > **Menjalankan (mesin dev saat ini):** dari `stomacare/stomacare` →
 > `..\..\php84\php.exe artisan migrate:fresh` lalu `..\..\php84\php.exe artisan serve` (http://127.0.0.1:8000).
-> Detail lengkap: `docs/FINAL_REPORT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/EXECUTION_CHECKLIST.md`.
+> Detail model & metodologi: `ASLAM_NaiveBayes_FINAL_Revisi.ipynb`.
+> Catatan risiko hilangnya kelas "Normal": `USULAN_PATCH_ai_predict.md`.
 >
 > *(Bagian di bawah adalah panduan lama — sebagian sudah tidak berlaku, mis. MySQL, PHP 8.3, model GNB/CNB ensemble.)*
 
