@@ -11,14 +11,23 @@ use Illuminate\Support\Facades\Log;
 
 class AnalysisController extends Controller
 {
-    /** Peta tipe gangguan (BernoulliNB) -> status aplikasi. */
+    /**
+     * Peta tipe gangguan (BernoulliNB) -> status aplikasi.
+     * Model kini 4 kelas penyakit lambung; 'Normal' bukan lagi kelas model
+     * melainkan hasil aturan di ai_predict.py saat tidak ada gejala sama sekali.
+     */
     private const DISEASE_STATUS = [
-        'Normal'        => 'NORMAL',
-        'GERD'          => 'PERHATIAN',
-        'Dispepsia'     => 'PERHATIAN',
-        'Gastritis'     => 'EMERGENCY',
-        'Tukak Lambung' => 'EMERGENCY',
+        'Normal'                             => 'NORMAL',
+        'Tidak terindikasi gangguan lambung' => 'NORMAL',
+        'Tidak dapat mendiagnosis'           => 'NORMAL',
+        'GERD'                               => 'PERHATIAN',
+        'Dispepsia'                          => 'PERHATIAN',
+        'Gastritis'                          => 'EMERGENCY',
+        'Tukak Lambung'                      => 'EMERGENCY',
     ];
+
+    /** Kelas yang benar-benar dikeluarkan model (untuk tampilan probabilitas). */
+    public const MODEL_CLASSES = ['GERD', 'Dispepsia', 'Gastritis', 'Tukak Lambung'];
 
     /** Fitur subjektif diskret: nama form (snake_case) => kunci model (CamelCase). */
     private const FEATURE_MAP = [
@@ -42,11 +51,15 @@ class AnalysisController extends Controller
 
     /**
      * 20 gejala biner untuk model ASLAM (BernoulliNB).
-     * Catatan: dataset training (train_aslam_symptom.py) menggandakan baris
-     * 'Fungal infection' 15x di kelas 'Normal' untuk mengoreksi bias dataset
-     * sumber (gejala 'itching' dulu "encer" di kelas Normal krn ditumpuk 31
-     * penyakit lain, sehingga input gatal-gatal saja salah diklasifikasikan
-     * Dispepsia). Setelah koreksi, gatal-gatal tunggal benar terklasifikasi Normal.
+     *
+     * REVISI: dataset kini difokuskan HANYA pada penyakit lambung. Kelas 'Normal'
+     * (yang dulu menampung 31 penyakit non-lambung) sudah dibuang, sehingga koreksi
+     * 'Fungal infection' 15x tidak lagi diperlukan.
+     *
+     * Karena model tidak punya kelas 'Normal', ia akan selalu memaksakan salah satu
+     * dari 4 kelas lambung. Penjagaan dilakukan di ai_predict.py lewat aturan
+     * core_gastric_symptoms: bila tidak ada gejala inti lambung yang dicentang,
+     * hasilnya "Tidak terindikasi gangguan lambung".
      */
     private const SYMPTOM_FEATURES = [
         'itching', 'stomach_pain', 'headache', 'chills', 'toxic_look_(typhos)',
@@ -196,9 +209,18 @@ class AnalysisController extends Controller
                 . 'Lengkapi gejala yang dialami atau konsultasikan ke dokter untuk pemeriksaan klinis.';
         }
 
+        // Gejala yang dipilih tidak mengarah ke lambung. Model ini hanya dilatih pada
+        // 4 penyakit lambung, sehingga keluhan di luar itu berada di luar cakupannya.
+        if ($prediction === 'Tidak terindikasi gangguan lambung') {
+            return 'Gejala yang Anda pilih tidak mengarah pada gangguan lambung, sehingga berada di luar '
+                . 'cakupan model ini. Hasil ini BUKAN berarti Anda sehat — keluhan Anda mungkin berkaitan '
+                . 'dengan kondisi lain (misalnya alergi, infeksi, atau gangguan organ lain). '
+                . 'Silakan konsultasikan ke dokter untuk pemeriksaan yang sesuai.';
+        }
+
         // Kalimat pembuka per tipe gangguan
         $intro = match ($prediction) {
-            'Normal'        => 'Hasil analisa AI: tidak terindikasi gangguan pencernaan spesifik (Normal). Pertahankan pola hidup sehat.',
+            'Normal'        => 'Hasil analisa AI: tidak ada gejala yang dilaporkan, sehingga tidak terindikasi gangguan lambung. Pertahankan pola hidup sehat.',
             'GERD'          => 'Hasil analisa AI: indikasi GERD (asam lambung naik ke kerongkongan). Perbaikan gaya hidup & pola makan sangat membantu.',
             'Dispepsia'     => 'Hasil analisa AI: indikasi Dispepsia (gangguan pencernaan/maag). Atur pola makan dan hindari faktor pemicu.',
             'Gastritis'     => 'Hasil analisa AI: indikasi Gastritis (peradangan lambung). Disarankan konsultasi dokter untuk penanganan yang tepat.',

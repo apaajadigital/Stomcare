@@ -9,7 +9,7 @@
         <h1 class="font-headline-xl text-headline-xl text-on-surface mb-4">Analisa Gangguan Pencernaan Berbasis Gejala</h1>
         <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
             Model <strong>Naive Bayes (BernoulliNB)</strong> menilai <strong>gejala yang Anda alami</strong> untuk memperkirakan
-            tipe gangguan pencernaan: <strong>Normal, GERD, Dispepsia, Gastritis, atau Tukak Lambung</strong>.
+            tipe gangguan lambung: <strong>GERD, Dispepsia, Gastritis, atau Tukak Lambung</strong>.
         </p>
     </div>
 
@@ -202,8 +202,9 @@
                 </h3>
                 <p class="text-body-md text-on-secondary-container opacity-90 leading-relaxed">
                     Model probabilistik <strong>Bernoulli Naive Bayes</strong> menganalisis pola <strong>gejala biner</strong>
-                    (dataset Kaggle) untuk memperkirakan tipe gangguan pencernaan dari 5 kelas:
-                    <strong>Normal, GERD, Dispepsia, Gastritis, Tukak Lambung</strong>. Akurasi model ± 96%.
+                    (dataset Kaggle, difokuskan pada penyakit lambung) untuk memperkirakan tipe gangguan dari 4 kelas:
+                    <strong>GERD, Dispepsia, Gastritis, Tukak Lambung</strong>. Akurasi model ± 98%.
+                    Keluhan di luar lambung berada di luar cakupan model dan tidak akan terdeteksi.
                 </p>
             </div>
 

@@ -17,9 +17,20 @@
     </div>
 
     @php
-        // Urutan tampilan kelas tipe gangguan
-        $diseaseOrder = ['Normal', 'GERD', 'Dispepsia', 'Gastritis', 'Tukak Lambung'];
+        // Urutan tampilan kelas tipe gangguan.
+        // Model kini 4 kelas penyakit lambung ('Normal' bukan lagi kelas model).
+        // Diambil dari kunci probabilitas agar otomatis mengikuti model yang terpasang.
+        $defaultOrder = ['GERD', 'Dispepsia', 'Gastritis', 'Tukak Lambung'];
         $probs = is_array($analysis->ai_probabilities) ? $analysis->ai_probabilities : (json_decode($analysis->ai_probabilities ?? '{}', true) ?: []);
+
+        // Tampilkan kelas sesuai probabilitas yang tersimpan. Analisa lama (5 kelas,
+        // termasuk 'Normal') tetap tampil utuh; analisa baru tampil 4 kelas.
+        $diseaseOrder = !empty($probs)
+            ? array_values(array_unique(array_merge(
+                array_values(array_intersect($defaultOrder, array_keys($probs))),
+                array_keys($probs)
+              )))
+            : $defaultOrder;
 
         // Peta label gejala (untuk menampilkan gejala yang dilaporkan)
         $symptomsList = [
@@ -62,7 +73,7 @@
                         </p>
                     </div>
 
-                    <!-- Probabilities Chart (5 kelas tipe gangguan) -->
+                    <!-- Probabilities Chart (4 kelas penyakit lambung) -->
                     <div class="space-y-4">
                         <h4 class="font-label-sm text-outline uppercase tracking-widest">Tingkat Keyakinan AI</h4>
                         @foreach($diseaseOrder as $label)
@@ -162,9 +173,9 @@
                 <h4 class="font-headline-sm text-primary mb-3">Langkah Selanjutnya</h4>
                 <p class="text-body-sm text-on-surface-variant mb-4">
                     Simpan laporan ini untuk ditunjukkan kepada dokter Anda.
-                    Model AI ini <strong>khusus mendeteksi 4 gangguan lambung</strong> (GERD, Dispepsia, Gastritis, Tukak Lambung).
-                    Hasil "Normal" berarti gejala Anda tidak cocok pola salah satu dari keempatnya — <strong>bukan berarti Anda pasti sehat</strong>.
-                    Jika gejala Anda mengarah ke kondisi lain di luar lambung (mis. alergi, infeksi, migrain, gangguan hati, dsb.), hasilnya akan tetap tampil "Normal" karena berada di luar cakupan model ini.
+                    Model AI ini <strong>dilatih khusus pada data 4 penyakit lambung</strong> (GERD, Dispepsia, Gastritis, Tukak Lambung).
+                    Hasil <strong>"Tidak terindikasi gangguan lambung"</strong> berarti gejala Anda tidak mengarah ke lambung — <strong>bukan berarti Anda pasti sehat</strong>.
+                    Jika gejala Anda mengarah ke kondisi lain di luar lambung (mis. alergi, infeksi, migrain, gangguan hati, dsb.), kondisi tersebut berada di luar cakupan model ini sehingga tidak akan terdeteksi.
                     Bila gejala berlanjut atau mengganggu, tetap periksakan diri ke dokter.
                 </p>
                 <div class="flex items-center gap-3 text-primary">
