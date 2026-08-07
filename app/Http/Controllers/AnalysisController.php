@@ -19,7 +19,10 @@ class AnalysisController extends Controller
     private const DISEASE_STATUS = [
         'Normal'                             => 'NORMAL',
         'Tidak terindikasi gangguan lambung' => 'NORMAL',
-        'Tidak dapat mendiagnosis'           => 'NORMAL',
+        // BELUM PASTI, bukan NORMAL: sistem sedang menyatakan "tidak tahu", bukan
+        // "Anda sehat". Menandainya hijau NORMAL berisiko membuat pengguna merasa
+        // aman padahal belum ada kesimpulan apa pun.
+        'Tidak dapat mendiagnosis'           => 'BELUM PASTI',
         'GERD'                               => 'PERHATIAN',
         'Dispepsia'                          => 'PERHATIAN',
         'Gastritis'                          => 'EMERGENCY',
@@ -271,10 +274,13 @@ class AnalysisController extends Controller
 
         $records = $query->orderBy('created_at', 'desc')->get();
 
+        // 'BELUM PASTI' sengaja dihitung terpisah agar tidak hilang dari rekap:
+        // ia bukan kondisi stabil, tapi juga bukan temuan yang perlu perhatian medis.
         $stats = [
             'total'     => $records->count(),
             'stable'    => $records->where('result_status', 'NORMAL')->count(),
             'attention' => $records->whereIn('result_status', ['PERHATIAN', 'EMERGENCY'])->count(),
+            'uncertain' => $records->where('result_status', 'BELUM PASTI')->count(),
         ];
 
         return view('analysis.history', compact('records', 'stats'));

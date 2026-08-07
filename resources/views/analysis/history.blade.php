@@ -56,13 +56,13 @@
     <div class="space-y-6">
         @forelse ($records as $record)
         <div class="group bg-surface-container-lowest p-6 md:p-8 rounded-xl shadow-[0px_16px_32px_rgba(0,123,255,0.03)] hover:shadow-[0px_16px_32px_rgba(0,123,255,0.08)] transition-all duration-300 flex flex-col md:flex-row md:items-center gap-6 border border-surface-variant/10">
-            <div class="flex-shrink-0 w-16 h-16 bg-surface-container-low rounded-lg flex items-center justify-center {{ $record->result_status == 'NORMAL' ? 'text-primary' : 'text-error' }}">
-                <span class="material-symbols-outlined text-3xl">{{ $record->result_status == 'NORMAL' ? 'medical_services' : 'emergency' }}</span>
+            <div class="flex-shrink-0 w-16 h-16 bg-surface-container-low rounded-lg flex items-center justify-center {{ $record->result_status == 'NORMAL' ? 'text-primary' : ($record->result_status == 'BELUM PASTI' ? 'text-on-surface-variant' : 'text-error') }}">
+                <span class="material-symbols-outlined text-3xl">{{ $record->result_status == 'NORMAL' ? 'medical_services' : ($record->result_status == 'BELUM PASTI' ? 'help' : 'emergency') }}</span>
             </div>
             <div class="flex-grow">
                 <div class="flex items-center gap-3 mb-2">
                     <span class="font-label-sm text-label-sm text-outline">{{ $record->created_at->format('d F Y • H:i') }}</span>
-                    <span class="px-3 py-1 rounded-full {{ $record->result_status == 'NORMAL' ? 'bg-secondary-container/30 text-on-secondary-container' : 'bg-error-container text-on-error-container' }} font-label-sm text-[12px] font-semibold uppercase">{{ $record->result_status }}</span>
+                    <span class="px-3 py-1 rounded-full {{ $record->result_status == 'NORMAL' ? 'bg-secondary-container/30 text-on-secondary-container' : ($record->result_status == 'BELUM PASTI' ? 'bg-surface-container-high text-on-surface-variant' : 'bg-error-container text-on-error-container') }} font-label-sm text-[12px] font-semibold uppercase">{{ $record->result_status }}</span>
                     @if($record->ai_prediction)
                     <span class="px-3 py-1 rounded-full bg-primary/10 text-primary font-label-sm text-[12px] font-semibold uppercase">{{ $record->ai_prediction }}</span>
                     @endif

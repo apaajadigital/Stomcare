@@ -53,6 +53,18 @@
         $ruleLabels  = ['Normal', 'Tidak terindikasi gangguan lambung', 'Tidak dapat mendiagnosis'];
         $isRuleBased = in_array($analysis->ai_prediction, $ruleLabels, true);
         $adaGejalaDilaporkan = collect($reported)->filter()->isNotEmpty();
+
+        // Gejala INTI lambung (samakan dengan core_gastric_symptoms di ai_predict.py).
+        // Dipakai untuk menjelaskan ALASAN hasil secara spesifik, karena ketiga label
+        // berbasis aturan punya sebab yang berbeda-beda.
+        $gejalaInti = [
+            'stomach_pain' => 'Sakit Perut', 'acidity' => 'Asam Lambung Naik',
+            'indigestion' => 'Gangguan Pencernaan / Maag', 'abdominal_pain' => 'Nyeri Perut Atas',
+            'belly_pain' => 'Nyeri Perut Bawah', 'passage_of_gases' => 'Sering Buang Angin',
+        ];
+        $intiDipilih = collect($gejalaInti)->filter(fn($l, $k) => !empty($reported[$k]));
+        $intiBelum   = collect($gejalaInti)->reject(fn($l, $k) => !empty($reported[$k]));
+        $skorTertinggi = !empty($probs) ? max($probs) : 0;
     @endphp
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
@@ -61,7 +73,7 @@
             <div class="bg-surface-container-lowest p-margin rounded-2xl shadow-xl border border-outline-variant/30 overflow-hidden relative">
                 <!-- Status Banner -->
                 <div class="absolute top-0 right-0 p-8">
-                    <div class="flex items-center gap-2 px-6 py-2 rounded-full font-headline-md {{ $analysis->result_status == 'NORMAL' ? 'bg-secondary-container text-on-secondary-container' : ($analysis->result_status == 'PERHATIAN' ? 'bg-orange-100 text-orange-800' : 'bg-error-container text-on-error-container') }}">
+                    <div class="flex items-center gap-2 px-6 py-2 rounded-full font-headline-md {{ $analysis->result_status == 'NORMAL' ? 'bg-secondary-container text-on-secondary-container' : ($analysis->result_status == 'BELUM PASTI' ? 'bg-surface-container-high text-on-surface-variant' : ($analysis->result_status == 'PERHATIAN' ? 'bg-orange-100 text-orange-800' : 'bg-error-container text-on-error-container')) }}">
                         {{ $analysis->result_status }}
                     </div>
                 </div>
@@ -91,22 +103,55 @@
                             <div class="flex items-start gap-3">
                                 <span class="material-symbols-outlined text-on-surface-variant mt-0.5">info</span>
                                 <div class="space-y-3">
-                                    <p class="font-headline-sm text-on-surface">Skor model tidak digunakan untuk hasil ini.</p>
-                                    <p class="text-body-sm text-on-surface-variant">
-                                        Model AI ini hanya mengenali <strong>4 penyakit lambung</strong>, sehingga ia
-                                        <strong>selalu terpaksa memilih salah satunya</strong> — bahkan ketika gejala yang
-                                        Anda laporkan sama sekali tidak mengarah ke lambung.
-                                    </p>
-                                    <p class="text-body-sm text-on-surface-variant">
-                                        @if($adaGejalaDilaporkan)
-                                            Karena gejala Anda tidak mengarah ke lambung, skor tersebut tidak bermakna dan
-                                            sengaja diabaikan. Hasil di atas ditentukan oleh <strong>pemeriksaan gejala</strong>,
-                                            bukan oleh skor model.
-                                        @else
-                                            Karena Anda tidak melaporkan gejala apa pun, tidak ada yang bisa dianalisa dan
-                                            skor model diabaikan.
+                                    @if($analysis->ai_prediction === 'Tidak dapat mendiagnosis')
+                                        {{-- Ada gejala lambung, tapi terlalu sedikit / model ragu --}}
+                                        <p class="font-headline-sm text-on-surface">Informasi belum cukup untuk menyimpulkan.</p>
+                                        <p class="text-body-sm text-on-surface-variant">
+                                            Anda melaporkan <strong>{{ $intiDipilih->count() }} gejala lambung</strong>@if($intiDipilih->isNotEmpty())
+                                            ({{ $intiDipilih->implode(', ') }})@endif. Jumlah itu belum cukup bagi model
+                                            untuk memastikan penyakitnya.
+                                        </p>
+                                        <p class="text-body-sm text-on-surface-variant">
+                                            Skor tertinggi model hanya <strong>{{ round($skorTertinggi * 100, 1) }}%</strong>,
+                                            sementara tebakan acak untuk 4 penyakit saja sudah 25%. Terlalu dekat untuk
+                                            dijadikan kesimpulan, sehingga model memilih <strong>jujur mengaku belum
+                                            tahu</strong> daripada menebak.
+                                        </p>
+                                        @if($intiBelum->isNotEmpty())
+                                        <div class="pt-1">
+                                            <p class="text-body-sm text-on-surface-variant mb-2">
+                                                Bila Anda juga merasakan gejala berikut, coba analisa ulang dengan
+                                                mencentangnya agar hasilnya lebih pasti:
+                                            </p>
+                                            <div class="flex flex-wrap gap-2">
+                                                @foreach($intiBelum as $label)
+                                                <span class="px-3 py-1 rounded-full bg-primary/10 text-primary text-label-sm">{{ $label }}</span>
+                                                @endforeach
+                                            </div>
+                                        </div>
                                         @endif
-                                    </p>
+                                    @elseif($adaGejalaDilaporkan)
+                                        {{-- Ada gejala, tapi tidak satu pun mengarah ke lambung --}}
+                                        <p class="font-headline-sm text-on-surface">Skor model tidak digunakan untuk hasil ini.</p>
+                                        <p class="text-body-sm text-on-surface-variant">
+                                            Model AI ini hanya mengenali <strong>4 penyakit lambung</strong>, sehingga ia
+                                            <strong>selalu terpaksa memilih salah satunya</strong> — bahkan ketika gejala
+                                            yang Anda laporkan sama sekali tidak mengarah ke lambung.
+                                        </p>
+                                        <p class="text-body-sm text-on-surface-variant">
+                                            Karena tidak ada satu pun gejala lambung yang Anda centang, skor tersebut tidak
+                                            bermakna dan sengaja diabaikan. Hasil di atas ditentukan oleh
+                                            <strong>pemeriksaan gejala</strong>, bukan oleh skor model.
+                                        </p>
+                                    @else
+                                        {{-- Tidak ada gejala sama sekali --}}
+                                        <p class="font-headline-sm text-on-surface">Tidak ada gejala untuk dianalisa.</p>
+                                        <p class="text-body-sm text-on-surface-variant">
+                                            Anda tidak melaporkan gejala apa pun, sehingga tidak ada yang bisa dinilai model.
+                                            Skor di bawah muncul hanya karena model selalu membagi 100% ke empat penyakit
+                                            yang ia kenal — bukan berarti Anda memiliki salah satunya.
+                                        </p>
+                                    @endif
                                     <details class="group">
                                         <summary class="cursor-pointer text-label-sm text-primary hover:underline select-none">
                                             Lihat skor mentah model (keperluan teknis)
