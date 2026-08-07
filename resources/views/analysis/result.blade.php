@@ -45,6 +45,14 @@
             'pain_during_bowel_movements' => 'Nyeri Saat BAB',
         ];
         $reported = is_array($analysis->symptoms) ? $analysis->symptoms : (json_decode($analysis->symptoms ?? '{}', true) ?: []);
+
+        // Label yang berasal dari ATURAN di ai_predict.py, bukan dari model.
+        // Model hanya mengenal 4 penyakit lambung sehingga ia selalu terpaksa memilih
+        // salah satunya; untuk kasus di bawah ini skornya TIDAK dipakai menentukan hasil,
+        // jadi menampilkannya apa adanya akan terlihat bertentangan dengan kesimpulan.
+        $ruleLabels  = ['Normal', 'Tidak terindikasi gangguan lambung', 'Tidak dapat mendiagnosis'];
+        $isRuleBased = in_array($analysis->ai_prediction, $ruleLabels, true);
+        $adaGejalaDilaporkan = collect($reported)->filter()->isNotEmpty();
     @endphp
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
@@ -60,7 +68,7 @@
 
                 <div class="relative z-10">
                     <span class="material-symbols-outlined text-primary text-6xl mb-6">psychology</span>
-                    <h2 class="font-label-sm text-outline uppercase tracking-widest mb-2">Diagnosa Terdeteksi:</h2>
+                    <h2 class="font-label-sm text-outline uppercase tracking-widest mb-2">{{ $isRuleBased ? 'Hasil Analisa:' : 'Diagnosa Terdeteksi:' }}</h2>
                     <h3 class="font-headline-lg text-headline-lg text-on-surface mb-6 uppercase">{{ $analysis->ai_prediction }}</h3>
 
                     <div class="bg-surface-container-low p-6 rounded-xl mb-8">
@@ -73,6 +81,61 @@
                         </p>
                     </div>
 
+                    @if($isRuleBased)
+                    <!-- Hasil dari ATURAN: skor model tidak dipakai, jadi jangan ditampilkan
+                         sebagai kesimpulan. Skor mentah tetap disediakan di dalam blok
+                         lipat (collapsible) demi transparansi tanpa menyesatkan pembaca awam. -->
+                    <div class="space-y-4">
+                        <h4 class="font-label-sm text-outline uppercase tracking-widest">Tingkat Keyakinan AI</h4>
+                        <div class="bg-surface-container-low border border-outline-variant/40 rounded-xl p-6">
+                            <div class="flex items-start gap-3">
+                                <span class="material-symbols-outlined text-on-surface-variant mt-0.5">info</span>
+                                <div class="space-y-3">
+                                    <p class="font-headline-sm text-on-surface">Skor model tidak digunakan untuk hasil ini.</p>
+                                    <p class="text-body-sm text-on-surface-variant">
+                                        Model AI ini hanya mengenali <strong>4 penyakit lambung</strong>, sehingga ia
+                                        <strong>selalu terpaksa memilih salah satunya</strong> — bahkan ketika gejala yang
+                                        Anda laporkan sama sekali tidak mengarah ke lambung.
+                                    </p>
+                                    <p class="text-body-sm text-on-surface-variant">
+                                        @if($adaGejalaDilaporkan)
+                                            Karena gejala Anda tidak mengarah ke lambung, skor tersebut tidak bermakna dan
+                                            sengaja diabaikan. Hasil di atas ditentukan oleh <strong>pemeriksaan gejala</strong>,
+                                            bukan oleh skor model.
+                                        @else
+                                            Karena Anda tidak melaporkan gejala apa pun, tidak ada yang bisa dianalisa dan
+                                            skor model diabaikan.
+                                        @endif
+                                    </p>
+                                    <details class="group">
+                                        <summary class="cursor-pointer text-label-sm text-primary hover:underline select-none">
+                                            Lihat skor mentah model (keperluan teknis)
+                                        </summary>
+                                        <div class="mt-4 space-y-3 pt-4 border-t border-outline-variant/40">
+                                            <p class="text-label-sm text-on-surface-variant italic">
+                                                Angka berikut adalah pembagian internal model antar 4 penyakit lambung.
+                                                Jumlahnya selalu 100% dan <strong>bukan</strong> ukuran seberapa besar
+                                                kemungkinan Anda sakit.
+                                            </p>
+                                            @foreach($diseaseOrder as $label)
+                                            @php $prob = $probs[$label] ?? 0; @endphp
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between text-label-sm text-on-surface-variant">
+                                                    <span>{{ $label }}</span>
+                                                    <span>{{ round($prob * 100, 1) }}%</span>
+                                                </div>
+                                                <div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+                                                    <div class="h-full bg-outline/40" style="width: {{ $prob * 100 }}%"></div>
+                                                </div>
+                                            </div>
+                                            @endforeach
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @else
                     <!-- Probabilities Chart (4 kelas penyakit lambung) -->
                     <div class="space-y-4">
                         <h4 class="font-label-sm text-outline uppercase tracking-widest">Tingkat Keyakinan AI</h4>
@@ -88,7 +151,11 @@
                             </div>
                         </div>
                         @endforeach
+                        <p class="text-label-sm text-on-surface-variant italic pt-2">
+                            Angka di atas adalah pembagian kemungkinan antar 4 penyakit lambung dan selalu berjumlah 100%.
+                        </p>
                     </div>
+                    @endif
                 </div>
             </div>
 
